@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="From the tool box: Grunt : Web development is getting complex." />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>From the tool box: Grunt</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/ruudud">View on GitHub</a>
+
+          <h1 id="project_title">From the tool box: Grunt</h1>
+          <h2 id="project_tagline">Web development is getting complex.</h2>
+
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <p>Developing a modern web page (or <em>web app</em>) is complex. In addition to all the
+standards of W3C, along with its best practices that has evolved over the
+years, you need to have JavaScript that runs efficiently and are organized in
+such a way that it is easy to maintain as the code grows.</p>
+
+<p>The site you are creating has to look and behave consistently cross different
+browsers and platforms, such as tablets and phones. And it has to do <a href="https://www.scirra.com/blog/74/making-a-fast-website">a lot of
+things</a> to be fast.
+Lastly, the process of releasing updates has to be as painless and quick as
+possible.</p>
+
+<p>So how do we cope with all of these requirements? We use tools.</p>
+
+<h2>Grunt -- a task based build tool</h2>
+
+<p>I recently spent some time setting up <a href="http://gruntjs.com/">Grunt</a> for an <a href="http://rein.ligretto.no/">offline reindeer mark
+register web app</a> I'm building at my spare time. In
+fact, I sat almost eight hours straight because it appeared to solve every
+problem I had, in an easy and fun way.</p>
+
+<p>Grunt is a task based build tool that can do pretty much anything. Sure, you could still use ant, phing, rake, or whatever you are used to using. Though, I think it makes sense to test out and use tools written in the same language as can be found in the project you are working in, i.e. by limiting the scope of the developer environment, and ease the process of writing custom plugins and so on.</p>
+
+<p>Grunt can be installed via <a href="https://npmjs.org/">npm</a> by running <code>npm install -g grunt</code>, 
+and you run it by issuing <code>grunt</code> in the directory containing the <code>grunt.js</code> file.
+This will typically be the project root.</p>
+
+<p>In the next sections, I will show some of the tasks I have set up Grunt to run at various times.</p>
+
+<h2>Pre-compile templates</h2>
+
+<p>I'm using <a href="http://documentcloud.github.com/underscore/#template">Underscore.js templates</a>,
+and it is convenient to write these in .html files and have them converted to
+pre-compiled JavaScript Templates (JST) available to be used throughout the
+code. Ergo, the client has to do less work, and the views can be rendered
+some nano seconds faster.</p>
+
+<p>By using <a href="https://github.com/gruntjs/grunt-contrib-jst/">the JST plugin</a>, 
+the following snippet will take all html files found in <code>src/templates</code>, compile them,
+and finally add them to the <code>src/templates/compiled.js</code> file under the namespace variable specified.</p>
+
+<pre><code>jst: {
+    compile: {
+        options: {
+            namespace: 'REIN.templates',
+            processName: function (filename) {
+                return filename.split('/').pop().split('.')[0];
+            }
+        },
+        files: {
+            'src/templates/compiled.js': ['src/templates/*.html']
+        }
+    }
+}
+</code></pre>
+
+<p>Since this is an extra plugin, remember to load it somewhere in your <code>grunt.js</code> file:</p>
+
+<pre><code>grunt.loadNpmTasks('grunt-contrib');
+</code></pre>
+
+<h2>Minify</h2>
+
+<p>Even though minifying / uglifying the JavaScript source code <a href="http://stackoverflow.com/questions/8139679/doesnt-javascript-minification-hurt-open-source">might be bad</a>
+for the open web, reducing the size of the application becomes quite important
+for an offline mobile web app when fighting cache limits of 5MB for some
+devices.</p>
+
+<p>(The source code of what I'm creating is however freely available under AGPLv3 on <a href="https://github.com/ruudud/reindeerfinder">github</a>.)</p>
+
+<pre><code>pkg: '&lt;json:package.json&gt;',
+min: {
+    dist: {
+        src: ['src/app.js', 'src/utils.js', 'src/register.js',
+              'src/templates/compiled.js', 'src/setup.js'],
+        dest: 'dist/&lt;%= pkg.name %&gt;.modules.min.js'
+    }
+}
+</code></pre>
+
+<p>Here, the default <strong>min</strong> task will take my source files (including the templates mentioned in the previous section), concatenate, and minify them. Notice how the <code>package.json</code> file is read in,
+and how a property of this is used in the <code>dest</code> property.</p>
+
+<h2>Concatenate</h2>
+
+<p>Even more important for page load speed, is to combine the source files (CSS
+and JavaScript separately, of course) to reduce the number of requests the
+client has to make to the web server.</p>
+
+<p>This is a built-in task in grunt, and in this more advanced snippet,
+you also see how to reference file lists and variables from other places in the file:</p>
+
+<pre><code>pkg: '&lt;json:package.json&gt;',
+meta: {
+    banner: '/* &lt;%= pkg.name %&gt;\n' +
+        '* &lt;%= pkg.homepage %&gt; \n' +
+        '* Copyright (c) &lt;%= grunt.template.today("yyyy") %&gt;' +
+        ' &lt;%= pkg.author.name %&gt;\n' +
+        '* Licensed under AGPLv3. */'
+},
+concat: {
+    dist: {
+        src: ['&lt;banner&gt;', 'lib/modernizr.min.js',
+              'lib/underscore.min.js', 'lib/backbone.min.js',
+              '&lt;config:min.dist.dest&gt;'],
+        dest: 'dist/&lt;%= pkg.name %&gt;.min.js'
+    }
+}
+</code></pre>
+
+<p>The end result is a file with a banner at the top, followed by dependencies
+and the file generated in the previous section.</p>
+
+<h2>HTML differences between the developer version and production code</h2>
+
+<p>Until I get <a href="http://www.html5rocks.com/en/tutorials/developertools/sourcemaps/">source maps</a> 
+integrated into the build, I like to link the JavaScript source files in to the HTML to easily debug my code. But before creating a release, I would like to link the concatenated and minified file.</p>
+
+<p>From my HTML:</p>
+
+<pre><code>&lt;!--(if target dummy)&gt;&lt;!--&gt;
+&lt;script src="lib/modernizr.min.js" type="text/javascript"&gt;&lt;/script&gt;
+&lt;script src="lib/underscore.min.js" type="text/javascript"&gt;&lt;/script&gt;
+&lt;script src="lib/backbone.min.js" type="text/javascript"&gt;&lt;/script&gt;
+&lt;script src="src/app.js" type="text/javascript"&gt;&lt;/script&gt;
+&lt;script src="src/utils.js" type="text/javascript"&gt;&lt;/script&gt;
+// ...
+&lt;!--&lt;!(endif)--&gt;
+&lt;!--(if target dist)&gt;
+&lt;script src="reindeerfinder.min.js" type="text/javascript"&gt;&lt;/script&gt;
+&lt;script type="text/javascript"&gt;var _gaq = _gaq || []; //...
+&lt;!(endif)--&gt;
+</code></pre>
+
+<p>And the corresponding grunt configuration:</p>
+
+<pre><code>targethtml: {
+    dist: {
+        input: 'index.html',
+        output: 'dist/index.html'
+    }
+}
+</code></pre>
+
+<p>I use this technique to avoid the <a href="http://diveintohtml5.info/offline.html">appcache</a> and Google Analytics when testing locally. </p>
+
+<h2>Do stuff when files change</h2>
+
+<p>When developing, I like to have my code tested automatically, both static checks with <a href="http://jshint.com/">jshint</a> and unit tests with <a href="http://busterjs.org">Buster</a>.</p>
+
+<p>To do this, I use a combination of the <strong>watch</strong> task, and the <a href="https://npmjs.org/package/grunt-buster">Buster plugin</a>.</p>
+
+<pre><code>buster: {
+    test: { config: 'test/buster.js' }
+},
+watch: {
+    browserscripts: {
+        files: ['src/**/*.js'],
+        tasks: ['lint:browser']
+    },
+    tests: {
+        files: ['src/**/*.js', 'test/**/*_test.js'],
+        tasks: ['buster']
+    }
+}
+</code></pre>
+
+<p>Again, remember to load the plugin:</p>
+
+<pre><code>grunt.loadNpmTasks('grunt-buster');
+</code></pre>
+
+<h2>Defining tasks</h2>
+
+<p>To define tasks, which is executed using <code>grunt &lt;task&gt;</code>, register them at the bottom of the file like this:</p>
+
+<pre><code>grunt.registerTask('release', 'jst lint buster clean:dist min concat mincss targethtml replace copy clean:temp');
+</code></pre>
+
+<h2>Conclusion</h2>
+
+<p>You can do a lot of things with Grunt, and so far, I'm very happy with using it.
+This was just some examples of what is being done in the <a href="https://github.com/ruudud/ReindeerFinder/blob/master/grunt.js">complete file</a> I have created for my little project. </p>
+
+<p>Have a look there to get more inspiration!</p>
+
+<p>Hit <a href="https://twitter.com/ruudud">@ruudud</a> at Twitter if you have any questions.</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+              <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-36931325-1");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
+
+  </body>
+</html>
